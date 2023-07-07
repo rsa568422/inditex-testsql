@@ -2,7 +2,10 @@ package com.inditex;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.Hashtable;
+import java.util.Map;
+import java.util.Objects;
 
 /**
  * Mejorar cada uno de los métodos a nivel SQL y código cuando sea necesario
@@ -25,28 +28,26 @@ public class TestSqlDao {
 
     /**
      * Obtiene el ID del último pedido para cada usuario
+     * Mejoras:
+     *  - Se cambia el tipo devuelto a uno más genérico (en este caso la interfaz Map)
+     *  - Se cambia el tipo de excepción lanzada a uno más específico (en este caso SQLException)
+     *  - Se obtiene la fila con el máximo ID_PEDIDO desde la consulta, en lugar de traerse todos los registros
+     *  - Se cambia a una consulta parametrizada para evitar la inyección de SQL
+     *  - Se verifica connection != null
      */
-    public Hashtable<Long, Long> getMaxUserOrderId(long idTienda) throws Exception {
-
-        String query = String.format("SELECT ID_PEDIDO, ID_USUARIO FROM PEDIDOS WHERE ID_TIENDA = %s", idTienda);
+    public Map<Long, Long> getMaxUserOrderId(long idTienda) throws SQLException {
+        String query = "SELECT MAX(ID_PEDIDO) AS ID_PEDIDO, ID_USUARIO FROM PEDIDOS WHERE ID_TIENDA = ? GROUP BY ID_USUARIO";
         Connection connection = getConnection();
+        if (Objects.isNull(connection)) throw new SQLException("Something was wrong getting data base connection");
         PreparedStatement stmt = connection.prepareStatement(query);
+        stmt.setLong(1, idTienda);
         ResultSet rs = stmt.executeQuery();
-        maxOrderUser = new Hashtable<Long, Long>();
+        maxOrderUser = new Hashtable<>();
 
         while (rs.next()) {
-
             long idPedido = rs.getInt("ID_PEDIDO");
             long idUsuario = rs.getInt("ID_USUARIO");
-
-            if (!maxOrderUser.containsKey(idUsuario)) {
-
-                maxOrderUser.put(idUsuario, idPedido);
-
-            } else if (maxOrderUser.get(idUsuario) < idPedido) {
-
-                maxOrderUser.put(idUsuario, idPedido);
-            }
+            maxOrderUser.put(idUsuario, idPedido);
         }
 
         return maxOrderUser;
